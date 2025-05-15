@@ -19,3 +19,7 @@ def get_doc(file_path:Path) ->list:
         for para in doc.paragraphs:
             full_text.append(para.text)
         pages_content.append({"page":1,"content":"\n".join(full_text)})
+
+    elif ext == ".txt": # for text file
+        with open(file_path,"r",encpding="utf-8")as f:
+            pages_content.append({"pages":1,"content":f.read()}) #in one pages
