@@ -7,7 +7,7 @@ from langchain.docstore.document import Document as LangchainDocument
 
 #chroma vector using openai embedding model
 def init_vector_store(persist_path:str,api_key:str):
-    embeddings_model=OpenAIEmbeddings(open_api_key=api_key)
+    embeddings_model=OpenAIEmbeddings(openai_api_key=api_key)
     return Chroma(persist_directory=persist_path,embedding_function=embeddings_model)
 
 def add_documnent(vector_store:Chroma,doc_id:str,text_pages:list):
@@ -43,4 +43,3 @@ def get_all_doc_ids(vector_store:Chroma)-> list:
         print(f"error getting all doc ids:{e}")
     return []
 
-    

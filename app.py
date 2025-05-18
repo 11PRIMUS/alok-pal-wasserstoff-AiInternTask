@@ -30,7 +30,7 @@ if 'processed_docs' not in st.session_state:
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        if uploaded_files.name not in st.session_state.processed_docs_values():
+        if uploaded_file.name not in st.session_state.processed_docs.values():
             st.write(f"Processing{uploaded_file.name}...")
             file_path=UPLOAD_DIR/uploaded_file.name
             with open(file_path,"wb") as f:
@@ -64,7 +64,7 @@ if query and st.session_state.processed_docs:
     for doc_id,doc_name in st.session_state.processed_docs.items():
         st.write(f"**querying: {doc_name}**")
         try:
-            response,citations=query_individual_document(vector_store, doc_id,query,OPENAI_API_KEY)
+            response,citations=query_document(vector_store, doc_id,query,OPENAI_API_KEY)
             st.markdown(f"**answer:** {response}")
             if citations:
                 st.markdown("**citations:**")
@@ -79,7 +79,7 @@ if query and st.session_state.processed_docs:
     st.subheader("cross_doc theme analysis:")
     if st.button("analyze theme across all docs"):
         try:
-            theme_analysis=analyze_themes(vector_store,list(st.session_state.processed_docs.keys())query,OPENAI_API_KEY)
+            theme_analysis=analyze_themes(vector_store, list(st.session_state.processed_docs.keys()), query, OPENAI_API_KEY)
             st.markdown(theme_analysis)
         except Exception as e:
             st.error(f"error in theme analysis:{e}")

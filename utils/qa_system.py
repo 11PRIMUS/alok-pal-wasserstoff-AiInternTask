@@ -1,4 +1,4 @@
-from langchain.chains import RetrievalAQ
+from langchain.chains import RetrievalQA
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
 

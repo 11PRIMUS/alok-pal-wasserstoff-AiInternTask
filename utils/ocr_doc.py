@@ -6,13 +6,13 @@ from docx import Document
 
 def get_doc(file_path:Path) ->list:
     pages_content=[]
-    ext=file_path.suufix.lower()
+    ext=file_path.suffix.lower() 
 
     if ext == ".pdf": # for pdfs
         doc=fitz.open(file_path)
         for page_num, page in enumerate(doc):
             pages_content.append({"page":page_num+1,"content":page.get_text()})
-            doc.close()
+        doc.close()
     
     elif ext==".docx": #for docx files 
         doc=Document(file_path)
