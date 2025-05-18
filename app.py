@@ -56,3 +56,37 @@ if st.session_state.processed_docs:
 
     st.write("available doc for querying: ",list(st.session_state.processed_docs.values()))
 
+st.header("Ask questions")
+query=st.text_input("enter your query:")
+
+if query and st.session_state.processed_docs:
+    st.subheader("individual doc response:")
+    for doc_id,doc_name in st.session_state.processed_docs.items():
+        st.write(f"**querying: {doc_name}**")
+        try:
+            response,citations=query_individual_document(vector_store, doc_id,query,OPENAI_API_KEY)
+            st.markdown(f"**answer:** {response}")
+            if citations:
+                st.markdown("**citations:**")
+                for cit in citations:
+                    st.markdown(f"- Page:{cit.get('page','N/A')}, Snippet: {cit.get('snippet','N/A')}") 
+            else:
+                st.write("no specific citations found, or answer is general.")
+        except Exception as e:
+            st.error(f"error querying {doc_name}: {e}")
+        st.markdown("---")
+    
+    st.subheader("cross_doc theme analysis:")
+    if st.button("analyze theme across all docs"):
+        try:
+            theme_analysis=analyze_themes(vector_store,list(st.session_state.processed_docs.keys())query,OPENAI_API_KEY)
+            st.markdown(theme_analysis)
+        except Exception as e:
+            st.error(f"error in theme analysis:{e}")
+    else:
+        if not st.session_state.processed_docs:
+            st.warning("please upload and process doc first")
+    st.sidebar.info("upload docs, then ask question ")
+
+
+
