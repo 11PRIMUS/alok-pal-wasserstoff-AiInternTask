@@ -1,18 +1,36 @@
 from langchain.chains import RetrievalQA
 from langchain.chains.summarize import load_summarize_chain
-from langchain_openai import ChatOpenAI
+import os
+import streamlit as st
+from .nebius_llm import NebiusChatModel
+
+
+
+os.environ["LANGCHAIN_TRACING_V2"]="true"
+langchain_api_key_from_env =os.getenv("LANGCHAIN_API_KEY")
+if langchain_api_key_from_env:
+    os.environ["LANGCHAIN_API_KEY"]=langchain_api_key_from_env
+else:
+    if 'st' in globals() and hasattr(st, 'sidebar') and hasattr(st.sidebar, 'warning'):
+        st.sidebar.warning("Langchain api key not found , tracing disabled")
+    else:
+        print("Warning: Langchain API key not found, tracing disabled.")
 
 def query_document(vector_store,doc_id:str,query:str,api_key:str):
-    llm=ChatOpenAI(model_name="gpt-3.5",temperature=0,openai_api_key=api_key)
+    llm=NebiusChatModel(
+        nebius_api_key=api_key, # Pass the api_key here
+        model_name="meta-llama/Llama-3.3-70B-Instruct",
+        temperature=0
+    )
     #retriever=get_retriever_for_doc(vector_store,doc_id)
     retriever=vector_store.as_retriever(search_kwargs={"k":3,"filter":{"source":doc_id}})
-    qa_chain=RetrievalAQ.from_chain_type(
+    qa_chain=RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,
     )
-    result=qa_chain({"query":query})
+    result=qa_chain.invoke({"query":query}) 
     answer=result["result"]
     citations=[]
     if result.get("source_documents"):
@@ -24,35 +42,31 @@ def query_document(vector_store,doc_id:str,query:str,api_key:str):
     return answer,citations
 
 def analyze_themes(vector_store,doc_ids:list,query:str,api_key:str):
-    llm=ChatOpenAI(model_name="gpt-3.5",temperature=0.2,openai_api_key=api_key)
+    llm=NebiusChatModel(
+        nebius_api_key=api_key, # Pass the api_key here
+        model_name="meta-llama/Llama-3.3-70B-Instruct",
+        temperature=0.2
+    )
 
-    #retriever=get_retriever_for_all_docs(vector_store,doc_ids)
     all_relevant_docs_for_query=[]
-    for doc_id in doc_ids:
-        retriever=vector_store.as_retriever(search_kwargs={"k":2,"filter":{"source":doc_id}})
+    for doc_id_item in doc_ids: 
+        retriever=vector_store.as_retriever(search_kwargs={"k":2,"filter":{"source":doc_id_item}})
         docs=retriever.get_relevant_documents(query)
         all_relevant_docs_for_query.extend(docs)
 
     if not all_relevant_docs_for_query:
         return "no relevant information found"
-    
-    #summarization chain for theme analysis
-    chain=load_summarize_chain(llm,chain_type="map_reduce")
-    #query_with_instruction=f"based on the following documnets,what are the common themes and key responses related to the query:'{query}'?"
-    #result=chain({"input_documents":all_relevant_docs_for_query,"question":query_with_instruction})
+    combined_context ="\n\n--\n\n".join([doc.page_content for doc in all_relevant_docs_for_query])
+    if len(combined_context)>12000: 
+        combined_context=combined_context[:12000]+"\n..(tr)"
 
-    #direct approach with single llm call if context fits
-    coombined_content="\n\n--\n\n".join([doc.page_content for doc in all_relevant_docs_for_query])
-    if len(coombined_content)>12000:
-        coombined_context=coombined_context[:12000]+"\n..(tr)"
-
-    prompt=f"""
-    Anlayze the text excerpts from multiple documents in realtion to query:"{query}" identify common themes, variations in response and provide synthesized overview.
+    prompt_template=f"""
+    Analyze the text excerpts from multiple documents in relation to query:"{query}" identify common themes, variations in response and provide synthesized overview.
     Excerpts:
     {combined_context}
-    Analysis
-    """
+    Analysis:
+    """ 
 
-    response=llm.invoke(prompt)
+    response=llm.invoke(prompt_template)
     return response.content
 
