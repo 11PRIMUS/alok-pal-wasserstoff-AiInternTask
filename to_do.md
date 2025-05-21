@@ -1,8 +1,8 @@
--text extraction and adding ocr (done_kind of)
--setup databse , emebdding and storage with metadata
--build a theme analaysis as mentioned
--make a web platform (going with streamlit)
--implement chunking and retrival settings
+-text extraction and adding ocr (done)
+-setup databse , emebdding and storage with metadata(done)
+-build a theme analaysis as mentioned(done)
+-make a web platform (going with streamlit)(done)
+-implement chunking and retrival settings(removed openai embedding using opensourced one)
 
 addons:
 -make a memory absed hirearchy for past docs
