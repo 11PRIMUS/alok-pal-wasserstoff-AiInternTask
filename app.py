@@ -24,9 +24,9 @@ except Exception as e:
     st.error(f"failed to init vector store{e}")
     st.stop()
     
-st.title("Document Query and Analysis with Nebius AI")
+st.title("Document Query and Analysis ")
 
-st.header("1. Upload and Process Documents")
+st.header("Upload and Process Documents")
 uploaded_files = st.file_uploader(
     "Upload documents (PDF, DOCX, TXT) or Images (PNG, JPG, JPEG) for OCR",
     type=['pdf', 'docx', 'txt', 'png', 'jpg', 'jpeg'],
