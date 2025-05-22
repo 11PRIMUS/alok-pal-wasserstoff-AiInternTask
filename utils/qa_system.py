@@ -3,16 +3,14 @@ from langchain.chains.summarize import load_summarize_chain
 import os
 import streamlit as st
 from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
 from langchain_core.documents import Document as LangchainDocument
 
 
 
-load_dotenv()
 os.environ["LANGCHAIN_TRACING_V2"]="true"
-langchain_api_key_from_env =os.getenv("LANGCHAIN_API_KEY")
-if langchain_api_key_from_env:
-    os.environ["LANGCHAIN_API_KEY"]=langchain_api_key_from_env
+langchain_api_key =st.secrets.get("LANGCHAIN_API_KEY")
+if langchain_api_key:
+    os.environ["LANGCHAIN_API_KEY"]=langchain_api_key
 else:
     try:
         if st.sidebar: #checks for streamlit sidebar
@@ -22,7 +20,7 @@ else:
 
 def _get_llm():
     """helper func to init nebius"""
-    nebius_api_key=os.getenv("NEBIUS_API_KEY")
+    nebius_api_key=st.secrets.get("NEBIUS_API_KEY")
     nebius_base_url="https://api.studio.nebius.com/v1/"
     nebius_model_name="meta-llama/Llama-3.3-70B-Instruct"
 
