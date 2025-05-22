@@ -2,7 +2,7 @@ from langchain.chains import RetrievalQA
 from langchain.chains.summarize import load_summarize_chain
 import os
 import streamlit as st
-from .nebius_llm import NebiusChatModel
+
 
 
 
