@@ -1,97 +1,123 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
-from pathlib import Path
 from utils.ocr_doc import get_doc
 from utils.database import init_vector_store, add_documnent, get_all_doc_ids
 from utils.qa_system import query_document, analyze_themes
 
 load_dotenv()
 
-NEBIUS_API_KEY = os.getenv("NEBIUS_API_KEY")
-if not NEBIUS_API_KEY:
-    st.error("nebius key not found")
-    st.stop()
-
-UPLOAD_DIR=Path("uploaded_docs")
-UPLOAD_DIR.mkdir(exist_ok=True)
 VECTOR_STORE_PATH="./vector_store_db"
 
+if not os.getenv("NEBIUS_API_KEY") or not os.getenv("NEBIUS_BASE_URL") or not os.getenv("NEBIUS_MODEL_NAME"):
+    st.error("check nebius config")
+    st.stop()
 try:
-    vector_store=init_vector_store(VECTOR_STORE_PATH, NEBIUS_API_KEY)
-    st.sidebar.success("vector store ")
+    vector_store=init_vector_store(VECTOR_STORE_PATH)
+    st.sidebar.success("vector store intialized ")
 except Exception as e:
     st.error(f"failed to init vector store{e}")
     st.stop()
     
+#sessions tart
+
+if "processed_documents" not in st.session_state:
+    #show existing doc when no new docs
+    try:
+        st.session_state.processed_documents=set(get_all_doc_ids(vector_store))
+        if st.session_state.processed_documents:
+            st.sidebar.info(f"loaded {len(st.session_state.processed_documents)} existing docs from vs.")
+    except Exception as e:
+        st.sidebar.warning(f"can't preload docs {e}")
+        st.session_state.processed_documents = set()
+
+if "document_contents" not in st.session_state: 
+    st.session_state.document_contents={}
 st.title("Document Query and Analysis ")
 
-st.header("Upload and Process Documents")
-uploaded_files = st.file_uploader(
-    "Upload documents (PDF, DOCX, TXT) or Images (PNG, JPG, JPEG) for OCR",
-    type=['pdf', 'docx', 'txt', 'png', 'jpg', 'jpeg'],
-    accept_multiple_files=True
-)
-
-if 'processed_docs' not in st.session_state:
-    st.session_state.processed_docs={}
+#sidebar
+st.sidebar.header("Doc Manager")
+uploaded_files =st.sidebar.file_uploader("upload documents (PDF, DOCX, TXT, Images)", type=["pdf", "docx", "txt", "png", "jpg", "jpeg"], accept_multiple_files=True)
 
 if uploaded_files:
-    with st.spinner("processing uploaded files..."):
-        for uploaded_file in uploaded_files:
-            if uploaded_file.name not in st.session_state.processed_docs.values():
-                st.write(f"Processing {uploaded_file.name}...")
-                file_path=UPLOAD_DIR / uploaded_file.name
-                with open(file_path,"wb") as f:
-                    f.write(uploaded_file.getbuffer())
-
+    for uploaded_file in uploaded_files:
+        doc_name=uploaded_file.name
+        if doc_name not in st.session_state.processed_documents:
+            with st.spinner(f"processing {doc_name}..."):
                 try:
-                    text_pages=get_doc(file_path)
-                    doc_id=uploaded_file.name
-                    add_documnent(vector_store, doc_id, text_pages)
-                    st.session_state.processed_docs[doc_id] = uploaded_file.name
-                    st.success(f"processed and stored{uploaded_file.name}")
+                    docs=get_doc(uploaded_file) 
+                    if docs:
+                        add_document(vector_store, docs) #liist doc
+                        st.session_state.processed_documents.add(doc_name)
+                        st.session_state.document_contents[doc_name]=f"processed on {pd.Timestamp.now()}"
+                        st.success(f"processed {doc_name}")
+                    else:
+                        st.error(f"failed to extract text{doc_name}")
                 except Exception as e:
-                    st.error(f"error processing {uploaded_file.name}: {e}")
-            else:
-                st.info(f"{uploaded_file.name}already been processed.")
+                    st.error(f"error processing {doc_name}: {e}")
+        else:
+            st.sidebar.info(f"{doc_name} already processed.")
+    available_documents=list(st.session_state.processed_documents)
 
-if st.session_state.processed_docs:
-    st.header("2. Query Your Documents")
-    st.write("available documents for querying: ",list(st.session_state.processed_docs.values()))
+#available_doc
+available_documents = sorted(list(st.session_state.processed_documents))
 
-query = st.text_input("enter your query:", key="query_input")
 
-if query and st.session_state.processed_docs:
-    st.subheader("Individual Document Responses:")
-    for doc_id, doc_name in st.session_state.processed_docs.items():
-        with st.expander(f"Querying: {doc_name}"):
-            try:
-                answer, citations=query_document(vector_store, doc_id, query, NEBIUS_API_KEY)
-                st.markdown(f"**Answer:** {answer}")
-                if citations:
-                    st.markdown("**Citations:**")
-                    for cit in citations:
-                        st.markdown(f"- Page: {cit.get('page', 'N/A')},Snippet: {cit.get('snippet', 'N/A')}")
+#Q&A
+tab1, tab2=st.tabs(["ask document ", "analyze theme"])
+
+with tab1:
+    st.header("Query a Specific Document")
+    if not available_documents:
+        st.info("upload and process doc ")
+    else:
+        selected_doc_for_query=st.selectbox("select a document to query", available_documents, key="query_doc_select", index=0 if available_documents else None)
+        if selected_doc_for_query:
+            query=st.text_input(f"ask a question about {selected_doc_for_query}", key="doc_query_input")
+            if st.button("Get Answer", key="get_doc_answer_btn"):
+                if query:
+                    with st.spinner("searching for answer..."):
+                        try:
+                            answer, citations=query_document(
+                                vector_store=vector_store,
+                                doc_id=selected_doc_for_query,
+                                query=query
+                            )
+                            st.markdown("### Answer")
+                            st.markdown(answer)
+                            if citations:
+                                st.markdown("### Citations")
+                                for i, citation in enumerate(citations):
+                                    st.markdown(f"**Citation {i+1}:** (Page {citation.get('page','N/A')})")
+                                    st.caption(f"Snippet: {citation.get('snippet','no snippet available.')}")
+                        except Exception as e:
+                            st.error(f"error querying document: {e}")
                 else:
-                    st.write("no citation found")
-            except Exception as e:
-                st.error(f"Error querying {doc_name}: {e}")
-    
-    st.subheader("theme analysis")
-    if st.button("analyze across all doc"):
-        with st.spinner("analyzing themes..."):
-            try:
-                doc_ids_list=list(st.session_state.processed_docs.keys())
-                theme_analysis_result = analyze_themes(vector_store, doc_ids_list, query, NEBIUS_API_KEY)
-                st.markdown("**theme result**")
-                st.markdown(theme_analysis_result)
-            except Exception as e:
-                st.error(f"error during theme{e}")
-elif query and not st.session_state.processed_docs:
-    st.warning("please upload doc first")
+                    st.warning("enter a question.")
 
-st.sidebar.info("1. Upload docs. 2. Wait for processing. 3. Ask questions.")
+with tab2:
+    st.header("Analyze Themes Across Documents")
+    if not available_documents:
+        st.info("upload and process one doc atleast")
+    else:
+        selected_docs_for_theme=st.multiselect("select documents for theme analysis", available_documents, key="theme_docs_select", default=available_documents if len(available_documents) <=3 else [])
+        theme_query=st.text_input("what themes are you interested in! (e.g., 'performance', 'key challenges')", key="theme_query_input")
 
-
+        if st.button("analyze themes", key="analyze_themes_btn"):
+            if selected_docs_for_theme and theme_query:
+                with st.spinner("analyzing themes..."):
+                    try:
+                        themes_output=analyze_themes(
+                            vector_store=vector_store,
+                            doc_ids=selected_docs_for_theme,
+                            query=theme_query
+                        )
+                        st.markdown("### Identified Themes")
+                        st.markdown(themes_output)
+                    except Exception as e:
+                        st.error(f"error analyzing themes: {e}")
+            elif not selected_docs_for_theme:
+                st.warning("select at least one doc for theme analysis.")
+            else: # theme_query is empty
+                st.warning("specify the theme criteria.")
 
