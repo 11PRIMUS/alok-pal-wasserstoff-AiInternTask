@@ -1,45 +1,46 @@
-from langchain.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
-from langchain.embeddings.base import Embeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter 
-from langchain.docstore.document import Document as LangchainDocument
+import os
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from typing import List
 
-
-#chroma vector using openai embedding model
-def init_vector_store(persist_path:str,api_key:str):
-    embeddings_model=OpenAIEmbeddings(openai_api_key=api_key)
+#chroma vector using sentence transformer
+def init_vector_store(persist_path:str):
+    embeddings_model=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return Chroma(persist_directory=persist_path,embedding_function=embeddings_model)
 
-def add_documnent(vector_store:Chroma,doc_id:str,text_pages:list):
-    text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # add doc to vector_dtore
+def add_document(vector_store:Chroma,docs:List[Document]):
+    text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     all_chunks = []
-    for page_item in text_pages:
-        page_num=page_item["page"]
-        page_content=page_item["content"]
-        chunks=text_splitter.split_text(page_content)
-        for i, chunk_text in enumerate(chunks):
-            metadata={"source":doc_id,"page":page_num,"chunk_in_page":i} #index of chunk
-            all_chunks.append(LangchainDocument(page_content=chunk_text,metadata=metadata))
+    for doc in docs: # docs list of LCdocs
+        source=doc.metadata.get("source","Unknown Source")
+        page=doc.metadata.get("page","N/A") #page info from ocr_doc
+
+        chunks_text=text_splitter.split_text(doc.page_content) #split content of this doc
+        for i,chunk_t in enumerate(chunks_text):
+            #new doc object for chunk
+            chunk_metadata = {"source": source, "page": page, "chunk_in_page": i}
+            all_chunks.append(Document(page_content=chunk_t, metadata=chunk_metadata))
     
     if all_chunks:
         vector_store.add_documents(all_chunks)
-        vector_store.persist() #changes  saved
 
  #search interface for one doc   
 def get_retriever_for_doc(vector_store:Chroma,doc_id:str,k_results=3):
     return vector_store.as_retriever(search_kwargs={"k":k_results,"filter":{"source":doc_id}})
 
-def get_retriever_for_all_doc(vector_store:Chroma,k_results=5): #retereiver across all doc in vector_store
-    return vector_store.as_retriver(search_kwargs={"k":k_results})
+def get_retriever_for_all_doc(vector_store:Chroma,k_results=5): #retriever across all doc in vector_store
+    return vector_store.as_retriever(search_kwargs={"k":k_results})
 
 #extract ids from vectordb
 def get_all_doc_ids(vector_store:Chroma)-> list:
     try:
-        #if chroma works fine that good otherwise i am going with Qdrant 
-        results=vector_store.get(include=["metadatas"])
-        if results and results['metadatas']:
-            return list(set(meta['source'] for meta in results['metadatas'] if 'source' in meta))
+        all_retrieved_docs = vector_store.get(include=["metadatas"]) 
+        if all_retrieved_docs and all_retrieved_docs.get('metadatas'):
+            #unique source names from metadata
+
+            return list(set(meta['source'] for meta in all_retrieved_docs['metadatas'] if meta and 'source' in meta))
     except Exception as e:
         print(f"error getting all doc ids:{e}")
     return []
-
