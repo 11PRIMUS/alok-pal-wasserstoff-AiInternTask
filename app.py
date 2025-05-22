@@ -7,7 +7,7 @@ from utils.qa_system import query_document, analyze_themes
 
 VECTOR_STORE_PATH="./vector_store_db"
 
-if not os.getenv("NEBIUS_API_KEY"):
+if not st.secrets.get("NEBIUS_API_KEY"):
     st.error("check nebius config")
     st.stop()
 try:
