@@ -2,14 +2,14 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 from utils.ocr_doc import get_doc
-from utils.database import init_vector_store, add_documnent, get_all_doc_ids
+from utils.database import init_vector_store, add_document, get_all_doc_ids
 from utils.qa_system import query_document, analyze_themes
 
 load_dotenv()
 
 VECTOR_STORE_PATH="./vector_store_db"
 
-if not os.getenv("NEBIUS_API_KEY") or not os.getenv("NEBIUS_BASE_URL") or not os.getenv("NEBIUS_MODEL_NAME"):
+if not os.getenv("NEBIUS_API_KEY"):
     st.error("check nebius config")
     st.stop()
 try:

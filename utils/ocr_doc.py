@@ -16,7 +16,7 @@ def get_doc(uploaded_file) ->list[LangchainDocument]:
     langchain_docs=[]
 
     try:
-        file_extension=os.path.splitext(doc_name)[1],lower().lstrip('.')
+        file_extension=os.path.splitext(doc_name)[1].lower().lstrip('.')
     except Exception as e:
         print(f"erro getting file exxtension for {doc_name}: {e}")
         return []

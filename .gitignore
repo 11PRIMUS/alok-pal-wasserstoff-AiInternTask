@@ -1,4 +1,4 @@
 .env
 uploaded_docs
-utils/__pycache__
 .vscode
+__pycache__/
