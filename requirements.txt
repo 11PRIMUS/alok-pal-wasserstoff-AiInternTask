@@ -12,4 +12,7 @@ Pillow
 pytesseract 
 PyMuPDF
 sentence-transformers
+torch==2.1.2
+langchain-huggingface
+
 
