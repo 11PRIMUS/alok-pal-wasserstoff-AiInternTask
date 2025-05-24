@@ -1,5 +1,5 @@
 import os
-from langchain_chroma import Chroma
+from langchain.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
